@@ -105,7 +105,13 @@ var CASES = [
   ]}
 ];
 
-var cfg = { wa:"", y:{}, t:{
+var cfg = { wa:"", y:{
+  "zeno":"4qUNEUoGgLU",
+  "michelin-convent":"yy9mKAssX-E",
+  "michelin-road":"NECXdOdRXUM",
+  "seinfeld":"7rKOGgs5btQ",
+  "seven-minutes":"-NJWxi5pzXw"
+}, t:{
   "zeno":[109,225,287],
   "michelin-convent":[88,202,283],
   "michelin-road":[100,238,285],
@@ -153,7 +159,7 @@ function loadLocal(){
     var d = JSON.parse(raw);
     if (d.cfg) {
       if (typeof d.cfg.wa === "string" && !cfg.wa) cfg.wa = d.cfg.wa;
-      if (d.cfg.y) for (var k in d.cfg.y) if (!cfg.y[k]) cfg.y[k] = d.cfg.y[k];
+      if (d.cfg.y) for (var k in d.cfg.y) if (!cfg.y[k] && d.cfg.y[k]) cfg.y[k] = d.cfg.y[k];
       if (d.cfg.t) for (var j in d.cfg.t) if (Object.prototype.toString.call(d.cfg.t[j]) === "[object Array]") cfg.t[j] = d.cfg.t[j];
     }
     if (d.ans) CASES.forEach(function(c){
