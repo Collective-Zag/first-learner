@@ -57,12 +57,12 @@
 
   <div id="pauses"></div>
 
-  <button class="send off" id="send">Send my answers to Dad</button>
+  <button class="send off" id="send">Send my answers to Papa</button>
   <button class="ghost" id="copy">Copy them instead</button>
   <div class="saved" id="saved">Saved on this phone as you type</div>
 
   <details id="setup">
-    <summary>Setup, Dad only</summary>
+    <summary>Setup, Papa only</summary>
     <p class="hint" style="margin-top:14px;">Paste a YouTube link and the pause times for each finished case, plus your WhatsApp number, then send Pichi the share link. Everything you type here travels inside that link, so his phone needs no setup and no sign-in. Pause times as 1:49, 3:45, 4:47.</p>
     <div id="vidfields"></div>
     <label for="wa">Your WhatsApp number, country code first, digits only</label>
@@ -520,7 +520,7 @@ document.getElementById("send").addEventListener("click", function(){
 });
 document.getElementById("copy").addEventListener("click", function(){
   var t = message();
-  var done = function(){ document.getElementById("saved").textContent = "Copied. Paste it to Dad."; };
+  var done = function(){ document.getElementById("saved").textContent = "Copied. Paste it to Papa."; };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, done);
   else {
     var ta = document.createElement("textarea");
