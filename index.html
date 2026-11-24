@@ -49,7 +49,7 @@
 <main>
   <div class="mono" id="kicker">Gumption</div>
   <h1 id="title">The Prosperous Voyage</h1>
-  <p class="lead">Watch it the way anyone would. When a pause screen comes up and asks you something, stop the video and type your answer here before you start it again. Your first reaction is the whole point.</p>
+  <p class="lead">Watch it the way anyone would. When a pause screen comes up and asks you something, it stops and asks you something. Type your answer here before you start it again. Each question only appears when the video gets to it, so you never read one early. Your first reaction is the whole point.</p>
 
   <div class="cases" id="cases"></div>
   <div class="player" id="player"></div>
@@ -118,14 +118,14 @@ var cfg = { wa:"", y:{
   "seinfeld":[135,216,278,342],
   "seven-minutes":[161,256,411]
 } };
-var player = null, apiOK = false, poller = null, apiTried = false;
+var player = null, apiOK = false, poller = null, apiTried = false, apiDown = false;
 var ans = {};
 var current = CASES[0].slug;
 var el = {};
 
 CASES.forEach(function(c){
   ans[c.slug] = {};
-  c.pauses.forEach(function(p){ ans[c.slug][p.id] = { own:"", clarity:"", snag:"" }; });
+  c.pauses.forEach(function(p){ ans[c.slug][p.id] = { own:"", clarity:"", snag:"", reached:false }; });
 });
 
 function caseOf(slug){
@@ -171,6 +171,7 @@ function loadLocal(){
         ans[c.slug][p.id].own = typeof r.own === "string" ? r.own : "";
         ans[c.slug][p.id].clarity = typeof r.clarity === "string" ? r.clarity : "";
         ans[c.slug][p.id].snag = typeof r.snag === "string" ? r.snag : "";
+        ans[c.slug][p.id].reached = r.reached === true;
       });
     });
   } catch(e){}
@@ -223,6 +224,15 @@ function gateIndex(){
   }
   return -1;
 }
+function markReached(i){
+  var c = caseOf(current);
+  if (!c.pauses[i]) return;
+  var a = ans[current][c.pauses[i].id];
+  if (a.reached) return;
+  a.reached = true;
+  saveLocal();
+  build(); paint();
+}
 function nudge(i){
   var c = caseOf(current);
   document.getElementById("watch").textContent = "Pause " + (i+1) + ". Answer it below, then press play again.";
@@ -252,6 +262,7 @@ function startPoll(){
     try { st = player.getPlayerState(); } catch(e){}
     if (now >= t[i] - 0.25 && st === 1) {
       try { player.pauseVideo(); player.seekTo(t[i], true); } catch(e){}
+      markReached(i);
       nudge(i);
     } else if (now > t[i] + 1.5) {
       try { player.seekTo(t[i], true); player.pauseVideo(); } catch(e){}
@@ -271,9 +282,9 @@ function makePlayer(id){
     playerVars: { playsinline:1, rel:0, modestbranding:1, cc_load_policy:0, cc_lang_pref:"none", iv_load_policy:3 },
     events: {
       onReady: function(){
-        apiOK = true;
+        apiOK = true; apiDown = false;
         try { player.unloadModule("captions"); player.unloadModule("cc"); } catch(e){}
-        watchLine(); startPoll();
+        watchLine(); startPoll(); refresh();
       },
       onStateChange: function(ev){
         if (ev.data !== 1) return;
@@ -281,7 +292,7 @@ function makePlayer(id){
         var i = gateIndex(); if (i < 0) return;
         var now = 0;
         try { now = player.getCurrentTime(); } catch(e){ return; }
-        if (now >= t[i] - 0.25) { try { player.pauseVideo(); player.seekTo(t[i], true); } catch(e){} nudge(i); }
+        if (now >= t[i] - 0.25) { try { player.pauseVideo(); player.seekTo(t[i], true); } catch(e){} markReached(i); nudge(i); }
       }
     }
   });
@@ -291,9 +302,9 @@ function loadApi(){
   apiTried = true;
   var s = document.createElement("script");
   s.src = "https://www.youtube.com/iframe_api";
-  s.onerror = function(){ apiOK = false; paintPlayer(); };
+  s.onerror = function(){ apiOK = false; apiDown = true; paintPlayer(); refresh(); };
   document.head.appendChild(s);
-  setTimeout(function(){ if (!window.YT || !window.YT.Player) { apiOK = false; watchLine(); } }, 6000);
+  setTimeout(function(){ if (!window.YT || !window.YT.Player) { apiOK = false; apiDown = true; watchLine(); refresh(); } }, 6000);
 }
 window.onYouTubeIframeAPIReady = function(){
   if (cfg.y[current]) { try { makePlayer(cfg.y[current]); } catch(e){ apiOK = false; paintPlayer(); } }
@@ -314,7 +325,7 @@ function paintPlayer(){
     return;
   }
   if (window.YT && window.YT.Player) {
-    try { makePlayer(id); watchLine(); return; } catch(e){ apiOK = false; }
+    try { makePlayer(id); watchLine(); return; } catch(e){ apiOK = false; apiDown = true; }
   }
   var f = document.createElement("iframe");
   f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) + "?playsinline=1&rel=0&modestbranding=1&cc_load_policy=0&cc_lang_pref=none&iv_load_policy=3";
@@ -358,11 +369,17 @@ function refresh(){
     if (!e) return;
     var prev = i === 0 ? true : ans[current][c.pauses[i-1].id].own.trim().length >= 10;
     var ready = a.own.trim().length >= 10;
-    e.section.className = prev ? "" : "locked";
-    e.q.style.display = prev ? "" : "none";
-    e.ownWrap.style.display = prev ? "" : "none";
-    e.waiting.style.display = prev ? "none" : "";
-    e.check.style.display = (prev && ready) ? "" : "none";
+    var open = prev && a.reached === true;
+    e.tag.textContent = open ? ("Pause " + (i+1) + " · " + p.name) : ("Pause " + (i+1));
+    e.section.className = open ? "" : "locked";
+    e.q.style.display = open ? "" : "none";
+    e.ownWrap.style.display = open ? "" : "none";
+    e.waiting.style.display = open ? "none" : "";
+    e.waiting.textContent = !prev
+      ? ("Answer pause " + i + " first.")
+      : "Opens when the video gets here.";
+    e.reveal.style.display = (!open && prev && apiDown) ? "" : "none";
+    e.check.style.display = (open && ready) ? "" : "none";
     e.clear.className = a.clarity === "clear" ? "on" : "";
     e.conf.className = a.clarity === "confusing" ? "on" : "";
     e.snagWrap.className = a.clarity === "confusing" ? "snag open" : "snag";
@@ -384,14 +401,21 @@ function build(){
     var sec = document.createElement("section");
     var tag = document.createElement("div");
     tag.className = "mono";
-    tag.textContent = "Pause " + (i+1) + " · " + p.name;
+    tag.textContent = "Pause " + (i+1);
     sec.appendChild(tag);
 
     var waiting = document.createElement("p");
     waiting.className = "hint";
     waiting.style.marginTop = "10px";
-    waiting.textContent = "Opens once you have answered pause " + i + ".";
+    waiting.textContent = "";
     sec.appendChild(waiting);
+
+    var reveal = document.createElement("button");
+    reveal.type = "button";
+    reveal.className = "ghost";
+    reveal.style.display = "none";
+    reveal.textContent = "I am at this pause in the video";
+    sec.appendChild(reveal);
 
     var q = document.createElement("div");
     q.className = "q";
@@ -432,8 +456,9 @@ function build(){
     sec.appendChild(check);
     host.appendChild(sec);
 
-    el[p.id] = { section:sec, q:q, ownWrap:ownWrap, waiting:waiting, check:check,
-                 clear:bc, conf:bf, snagWrap:snagWrap, snag:snag, own:own };
+    el[p.id] = { section:sec, tag:tag, q:q, ownWrap:ownWrap, waiting:waiting, reveal:reveal,
+                 check:check, clear:bc, conf:bf, snagWrap:snagWrap, snag:snag, own:own };
+    reveal.addEventListener("click", function(){ markReached(i); });
 
     var slug = current, pid = p.id;
     own.addEventListener("input", function(){ ans[slug][pid].own = own.value; refresh(); saveLocal(); if (slug === current) watchLine(); });
