@@ -268,9 +268,13 @@ function makePlayer(id){
   player = new YT.Player("ytmount", {
     videoId: id,
     host: "https://www.youtube-nocookie.com",
-    playerVars: { playsinline:1, rel:0, modestbranding:1 },
+    playerVars: { playsinline:1, rel:0, modestbranding:1, cc_load_policy:0, cc_lang_pref:"none", iv_load_policy:3 },
     events: {
-      onReady: function(){ apiOK = true; watchLine(); startPoll(); },
+      onReady: function(){
+        apiOK = true;
+        try { player.unloadModule("captions"); player.unloadModule("cc"); } catch(e){}
+        watchLine(); startPoll();
+      },
       onStateChange: function(ev){
         if (ev.data !== 1) return;
         var t = times(); if (!t.length) return;
@@ -313,7 +317,7 @@ function paintPlayer(){
     try { makePlayer(id); watchLine(); return; } catch(e){ apiOK = false; }
   }
   var f = document.createElement("iframe");
-  f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) + "?playsinline=1&rel=0&modestbranding=1";
+  f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) + "?playsinline=1&rel=0&modestbranding=1&cc_load_policy=0&cc_lang_pref=none&iv_load_policy=3";
   f.allow = "accelerometer; encrypted-media; picture-in-picture; fullscreen";
   f.setAttribute("allowfullscreen","");
   host.appendChild(f);
