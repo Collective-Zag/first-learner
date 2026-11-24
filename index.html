@@ -62,18 +62,7 @@
 
   <div class="saved" id="saved">Each answer is locked when you submit it. They stay on this phone.</div>
 
-  <details id="setup">
-    <summary>Setup, Papa only</summary>
-    <p class="hint" style="margin-top:14px;">Paste a YouTube link and the pause times for each finished case, plus your WhatsApp number, then send Pichi the share link. Everything you type here travels inside that link, so his phone needs no setup and no sign-in. Pause times as 1:49, 3:45, 4:47.</p>
-    <div id="vidfields"></div>
-    <label for="wa">Your WhatsApp number, country code first, digits only</label>
-    <input type="text" id="wa" inputmode="numeric" placeholder="17865550123">
-    <button class="ghost" id="savebtn" style="margin-top:20px;">Save setup</button>
-    <div class="saved" id="setupstate" style="margin-top:12px;">Everything here saves as you type</div>
-    <button class="ghost" id="mklink" style="margin-top:20px;">Copy the share link for Pichi</button>
-    <button class="ghost" id="walink">Send the link on WhatsApp</button>
-    <div class="link" id="linkout" style="display:none;"></div>
-  </details>
+
 </main>
 
 <script>
@@ -530,6 +519,17 @@ function build(){
     snag.placeholder = "Which bit lost you, or what you thought it was asking.";
     snagWrap.appendChild(snag);
     check.appendChild(snagWrap);
+
+    var submit = document.createElement("button");
+    submit.type = "button";
+    submit.className = "send off";
+    submit.textContent = "Submit this answer";
+    check.appendChild(submit);
+
+    var note = document.createElement("div");
+    note.className = "meter";
+    check.appendChild(note);
+
     sec.appendChild(check);
     host.appendChild(sec);
 
@@ -596,64 +596,9 @@ function switchTo(slug){
   window.scrollTo({ top:0, behavior:"smooth" });
 }
 
-function buildSetup(){
-  var host = document.getElementById("vidfields");
-  CASES.forEach(function(c){
-    var l = document.createElement("label");
-    l.textContent = c.title;
-    var inp = document.createElement("input");
-    inp.type = "text";
-    inp.placeholder = "https://youtu.be/...";
-    inp.value = cfg.y[c.slug] ? "https://youtu.be/" + cfg.y[c.slug] : "";
-    inp.addEventListener("input", function(){
-      var id = ytId(inp.value);
-      if (id) cfg.y[c.slug] = id; else delete cfg.y[c.slug];
-      saveLocal(); setupSaved();
-      if (c.slug === current) paintPlayer();
-      paintChips();
-    });
-    var tl = document.createElement("label");
-    tl.textContent = "Pause times, " + c.pauses.length + " of them";
-    var ti = document.createElement("input");
-    ti.type = "text";
-    ti.placeholder = c.pauses.map(function(){ return "0:00"; }).join(", ");
-    ti.value = (cfg.t[c.slug] || []).map(fmt).join(", ");
-    ti.addEventListener("input", function(){
-      var t = parseTimes(ti.value);
-      if (t.length) cfg.t[c.slug] = t; else delete cfg.t[c.slug];
-      saveLocal(); setupSaved();
-      if (c.slug === current) watchLine();
-    });
-    host.appendChild(l); host.appendChild(inp);
-    host.appendChild(tl); host.appendChild(ti);
-  });
-  var wa = document.getElementById("wa");
-  wa.value = cfg.wa || "";
-  wa.addEventListener("input", function(){ cfg.wa = wa.value.replace(/[^0-9]/g,""); saveLocal(); setupSaved(); });
-  document.getElementById("savebtn").addEventListener("click", function(){
-    saveLocal();
-    setupSaved("Saved at " + new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
-  });
-
-  document.getElementById("mklink").addEventListener("click", function(){
-    var url = shareLink();
-    var out = document.getElementById("linkout");
-    out.style.display = "block";
-    out.textContent = url;
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url);
-    setupSaved("Link copied. Send Pichi the whole thing.");
-  });
-  document.getElementById("walink").addEventListener("click", function(){
-    var txt = encodeURIComponent("Here is the Gumption page. Open it in Safari, watch the case and answer there.\n\n" + shareLink());
-    window.open("https://wa.me/?text=" + txt, "_blank");
-  });
-}
-
 loadHash();
 loadLocal();
 build();
-buildSetup();
-setupSaved();
 paint();
 flush();
 window.addEventListener("online", flush);
