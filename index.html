@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gumption</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0B0B0B; --fg:#ECEAE4; --mute:#8A877F; --line:#262522; --fill:#161513; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html { -webkit-text-size-adjust:100%; }
+  html,body { margin:0; background:var(--bg); color:var(--fg); font-family:Inter,system-ui,-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
+  main { max-width:640px; margin:0 auto; padding:26px 18px calc(40px + env(safe-area-inset-bottom)); }
+  .mono { font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); }
+  h1 { font-size:27px; font-weight:500; letter-spacing:-.02em; margin:8px 0 8px; line-height:1.15; }
+  .lead { color:var(--mute); font-size:15px; margin:0 0 20px; line-height:1.55; }
+  .cases { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 22px; }
+  .cases button { background:transparent; color:var(--fg); border:1px solid var(--line); border-radius:999px; padding:11px 17px; font:inherit; font-size:15px; min-height:44px; cursor:pointer; opacity:.62; }
+  .cases button.on { opacity:1; background:var(--fg); color:var(--bg); border-color:var(--fg); }
+  .cases button.none { opacity:.3; }
+  .cases .tick { font-family:"JetBrains Mono",monospace; font-size:10px; opacity:.6; margin-left:7px; }
+  .player { position:relative; width:100%; padding-top:56.25%; background:var(--fill); border:1px solid var(--line); border-radius:8px; overflow:hidden; margin-bottom:10px; }
+  .player iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .player .ph { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; color:var(--mute); font-size:14px; line-height:1.5; }
+  .watch { color:var(--mute); font-size:14px; line-height:1.55; margin:0 0 26px; }
+  section { border-top:1px solid var(--line); padding:24px 0; }
+  section.locked { opacity:.32; }
+  label { display:block; font-size:15px; margin:16px 0 8px; }
+  input[type=text], textarea { width:100%; background:var(--fill); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:13px 14px; font:inherit; font-size:16px; outline:none; }
+  input:focus, textarea:focus { border-color:var(--mute); background:#1C1B18; }
+  textarea { resize:vertical; line-height:1.5; min-height:132px; }
+  textarea.one { min-height:72px; }
+  .q { background:var(--fill); border:1px solid var(--line); border-left:2px solid var(--fg); border-radius:8px; padding:16px 17px; margin:12px 0 4px; font-size:17px; line-height:1.5; }
+  .hint { color:var(--mute); font-size:14px; margin:0 0 14px; line-height:1.55; }
+  .chips { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+  .chips button { background:transparent; color:var(--fg); border:1px solid var(--line); border-radius:999px; padding:12px 20px; font:inherit; font-size:15px; min-height:46px; cursor:pointer; opacity:.7; }
+  .chips button.on { opacity:1; background:var(--fg); color:var(--bg); border-color:var(--fg); }
+  .snag { display:none; } .snag.open { display:block; }
+  .send { display:block; width:100%; text-align:center; text-decoration:none; background:var(--fg); color:var(--bg); border:0; border-radius:10px; padding:17px; font:inherit; font-size:17px; font-weight:500; margin-top:26px; cursor:pointer; }
+  .send.off { opacity:.3; pointer-events:none; }
+  .ghost { display:block; width:100%; text-align:center; background:transparent; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:15px; font:inherit; font-size:15px; margin-top:10px; cursor:pointer; }
+  .saved { text-align:center; font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); margin-top:16px; }
+  details { margin-top:40px; border-top:1px solid var(--line); padding-top:18px; }
+  summary { cursor:pointer; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); padding:6px 0; }
+  .link { word-break:break-all; background:var(--fill); border:1px solid var(--line); border-radius:8px; padding:12px; font-family:"JetBrains Mono",monospace; font-size:11px; line-height:1.5; color:var(--mute); margin-top:12px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="mono" id="kicker">Gumption</div>
+  <h1 id="title">The Prosperous Voyage</h1>
+  <p class="lead">Watch it the way anyone would. When a pause screen comes up and asks you something, stop the video and type your answer here before you start it again. Your first reaction is the whole point.</p>
+
+  <div class="cases" id="cases"></div>
+  <div class="player" id="player"></div>
+  <p class="watch" id="watch"></p>
+
+  <div id="pauses"></div>
+
+  <button class="send off" id="send">Send my answers to Dad</button>
+  <button class="ghost" id="copy">Copy them instead</button>
+  <div class="saved" id="saved">Saved on this phone as you type</div>
+
+  <details id="setup">
+    <summary>Setup, Dad only</summary>
+    <p class="hint" style="margin-top:14px;">Paste a YouTube link and the pause times for each finished case, plus your WhatsApp number, then send Pichi the share link. Everything you type here travels inside that link, so his phone needs no setup and no sign-in. Pause times as 1:49, 3:45, 4:47.</p>
+    <div id="vidfields"></div>
+    <label for="wa">Your WhatsApp number, country code first, digits only</label>
+    <input type="text" id="wa" inputmode="numeric" placeholder="17865550123">
+    <button class="ghost" id="savebtn" style="margin-top:20px;">Save setup</button>
+    <div class="saved" id="setupstate" style="margin-top:12px;">Everything here saves as you type</div>
+    <button class="ghost" id="mklink" style="margin-top:20px;">Copy the share link for Pichi</button>
+    <button class="ghost" id="walink">Send the link on WhatsApp</button>
+    <div class="link" id="linkout" style="display:none;"></div>
+  </details>
+</main>
+
+<script>
+var CASES = [
+  { slug:"zeno", n:"Case 01", title:"The Prosperous Voyage", short:"Zeno", pauses:[
+    { id:"p1", name:"The Night on the Steps", q:"You are Zeno on those steps. Everyone expects you to borrow money and trade again. Do you, and why?" },
+    { id:"p2", name:"The Empty Hands", q:"Ten years later you are still poor, and everyone still thinks you were wrong. Do you stay with it, or go back to trading?" },
+    { id:"p3", name:"What You Own", q:"Think of one thing you are working on right now. If you lost it tomorrow, what would you still have?" }
+  ]},
+  { slug:"michelin-convent", n:"Case 02", title:"The Room at the Convent", short:"The Convent", pauses:[
+    { id:"p1", name:"One Day", q:"Every penny you have, for a factory that failed once. Do you hand it over, and which brother runs it, the engineer or the painter?" },
+    { id:"p2", name:"What's Left", q:"Two years on. The money is nearly gone and the painter is still learning. Do you stay with him, or bring in an expert?" },
+    { id:"p3", name:"The Turn", q:"What have people decided you are? If you tried anyway and failed, could you live in a room like hers?" }
+  ]},
+  { slug:"michelin-road", n:"Case 03", title:"The Empty Road", short:"The Road", pauses:[
+    { id:"p1", name:"Twelve Books for Every Car", q:"Almost nobody drives, so nobody wears out tires. Spend your money on better tires, or on a free book about where to eat and sleep?" },
+    { id:"p2", name:"Under the Table", q:"Twenty years of giving the book away worked, and now it is propping up a workbench. Keep it free, charge for it, or stop?" },
+    { id:"p3", name:"The Measuring Stick", q:"What could you give people that nobody is asking for yet? Who would decide whether it was any good?" }
+  ]},
+  { slug:"seinfeld", n:"Case 04", title:"The Slip of Paper", short:"Seinfeld", pauses:[
+    { id:"p1", name:"No Table", q:"The people who pay for your show say this episode will fail. Your partner will not change it. What do you do?" },
+    { id:"p2", name:"The Slip of Paper", q:"You are already rich, and you are tired. One more year pays one hundred and ten million dollars. Do you take it?" },
+    { id:"p3", name:"A Quiet Room", q:"The ending got bad reviews and your new jokes are not landing. Was stopping a mistake?" },
+    { id:"p4", name:"Your Test", q:"Where in your life do the people who are supposed to know say one thing, and you think something else?" }
+  ]},
+  { slug:"seven-minutes", n:"Case 05", title:"Seven Minutes", short:"Seven Minutes", pauses:[
+    { id:"p1", name:"Just Cleaners", q:"The numbers seem to show that the cleaning crews are not doing a good job. What do you do?" },
+    { id:"p2", name:"The Fourteen", q:"The fourteen who joined you are being laughed at, new people keep quitting, and the railway wants to know who pays. Do you keep going?" },
+    { id:"p3", name:"The Turn", q:"Who around you does everyone think less of? What might you see if you spent a month beside them?" }
+  ]}
+];
+
+var cfg = { wa:"", y:{}, t:{
+  "zeno":[109,225,287],
+  "michelin-convent":[88,202,283],
+  "michelin-road":[100,238,285],
+  "seinfeld":[135,216,278,342],
+  "seven-minutes":[161,256,411]
+} };
+var player = null, apiOK = false, poller = null, apiTried = false;
+var ans = {};
+var current = CASES[0].slug;
+var el = {};
+
+CASES.forEach(function(c){
+  ans[c.slug] = {};
+  c.pauses.forEach(function(p){ ans[c.slug][p.id] = { own:"", clarity:"", snag:"" }; });
+});
+
+function caseOf(slug){
+  for (var i=0;i<CASES.length;i++) if (CASES[i].slug === slug) return CASES[i];
+  return CASES[0];
+}
+function ytId(s){
+  s = (s || "").trim();
+  if (!s) return "";
+  var m = s.match(/(?:youtu\.be\/|v=|\/embed\/|\/shorts\/)([A-Za-z0-9_-]{6,})/);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9_-]{6,}$/.test(s)) return s;
+  return "";
+}
+function b64e(str){
+  var b = btoa(unescape(encodeURIComponent(str)));
+  return b.replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function b64d(str){
+  var s = str.replace(/-/g,"+").replace(/_/g,"/");
+  while (s.length % 4) s += "=";
+  return decodeURIComponent(escape(atob(s)));
+}
+function saveLocal(){
+  try { localStorage.setItem("gumption-phone", JSON.stringify({ ans:ans, cfg:cfg })); } catch(e){}
+}
+function loadLocal(){
+  try {
+    var raw = localStorage.getItem("gumption-phone");
+    if (!raw) return;
+    var d = JSON.parse(raw);
+    if (d.cfg) {
+      if (typeof d.cfg.wa === "string" && !cfg.wa) cfg.wa = d.cfg.wa;
+      if (d.cfg.y) for (var k in d.cfg.y) if (!cfg.y[k]) cfg.y[k] = d.cfg.y[k];
+      if (d.cfg.t) for (var j in d.cfg.t) if (Object.prototype.toString.call(d.cfg.t[j]) === "[object Array]") cfg.t[j] = d.cfg.t[j];
+    }
+    if (d.ans) CASES.forEach(function(c){
+      var a = d.ans[c.slug];
+      if (!a) return;
+      c.pauses.forEach(function(p){
+        var r = a[p.id];
+        if (!r) return;
+        ans[c.slug][p.id].own = typeof r.own === "string" ? r.own : "";
+        ans[c.slug][p.id].clarity = typeof r.clarity === "string" ? r.clarity : "";
+        ans[c.slug][p.id].snag = typeof r.snag === "string" ? r.snag : "";
+      });
+    });
+  } catch(e){}
+}
+function loadHash(){
+  var h = location.hash || "";
+  var i = h.indexOf("c=");
+  if (i < 0) return;
+  try {
+    var d = JSON.parse(b64d(h.slice(i+2)));
+    if (typeof d.wa === "string") cfg.wa = d.wa;
+    if (d.y) for (var k in d.y) if (typeof d.y[k] === "string") cfg.y[k] = d.y[k];
+    if (d.t) for (var j in d.t) if (Object.prototype.toString.call(d.t[j]) === "[object Array]") cfg.t[j] = d.t[j];
+  } catch(e){}
+}
+function shareLink(){
+  var payload = b64e(JSON.stringify({ wa:cfg.wa, y:cfg.y, t:cfg.t }));
+  return location.origin + location.pathname + "#c=" + payload;
+}
+
+function parseTimes(s){
+  var out = [];
+  (s || "").split(/[,;\n]+/).forEach(function(tok){
+    tok = tok.trim();
+    if (!tok) return;
+    var secs = 0;
+    if (tok.indexOf(":") > -1) {
+      var parts = tok.split(":").map(function(x){ return parseInt(x, 10) || 0; });
+      while (parts.length < 3) parts.unshift(0);
+      secs = parts[0]*3600 + parts[1]*60 + parts[2];
+    } else {
+      secs = parseInt(tok, 10) || 0;
+    }
+    if (secs > 0) out.push(secs);
+  });
+  return out;
+}
+function fmt(s){
+  s = Math.max(0, Math.round(s));
+  var m = Math.floor(s/60), r = s % 60;
+  return m + ":" + (r < 10 ? "0" : "") + r;
+}
+var CARD_HOLD = 2.5;
+function times(){ return (cfg.t[current] || []).map(function(s){ return s + CARD_HOLD; }); }
+function cardStarts(){ return cfg.t[current] || []; }
+function gateIndex(){
+  var c = caseOf(current), t = times();
+  for (var i=0; i<t.length && i<c.pauses.length; i++) {
+    if (ans[current][c.pauses[i].id].own.trim().length < 10) return i;
+  }
+  return -1;
+}
+function nudge(i){
+  var c = caseOf(current);
+  document.getElementById("watch").textContent = "Pause " + (i+1) + ". Answer it below, then press play again.";
+  var e = el[c.pauses[i].id];
+  if (e) e.section.scrollIntoView({ behavior:"smooth", block:"start" });
+}
+function watchLine(){
+  var w = document.getElementById("watch");
+  if (!cfg.y[current]) { w.textContent = ""; return; }
+  var t = cardStarts();
+  if (apiOK && t.length) { w.textContent = "It stops itself at each question. Answer, then press play again."; return; }
+  if (t.length) {
+    w.textContent = "Stop the video yourself at " + t.map(fmt).join(", ") + " and answer here before going on.";
+    return;
+  }
+  w.textContent = "Tap play, and pause it yourself when the question comes up.";
+}
+function startPoll(){
+  if (poller) clearInterval(poller);
+  poller = setInterval(function(){
+    if (!player || !apiOK || !player.getCurrentTime) return;
+    var t = times(); if (!t.length) return;
+    var i = gateIndex(); if (i < 0) return;
+    var now = 0;
+    try { now = player.getCurrentTime(); } catch(e){ return; }
+    var st = -1;
+    try { st = player.getPlayerState(); } catch(e){}
+    if (now >= t[i] - 0.25 && st === 1) {
+      try { player.pauseVideo(); player.seekTo(t[i], true); } catch(e){}
+      nudge(i);
+    } else if (now > t[i] + 1.5) {
+      try { player.seekTo(t[i], true); player.pauseVideo(); } catch(e){}
+      nudge(i);
+    }
+  }, 300);
+}
+function makePlayer(id){
+  var host = document.getElementById("player");
+  host.innerHTML = "";
+  var mount = document.createElement("div");
+  mount.id = "ytmount";
+  host.appendChild(mount);
+  player = new YT.Player("ytmount", {
+    videoId: id,
+    host: "https://www.youtube-nocookie.com",
+    playerVars: { playsinline:1, rel:0, modestbranding:1 },
+    events: {
+      onReady: function(){ apiOK = true; watchLine(); startPoll(); },
+      onStateChange: function(ev){
+        if (ev.data !== 1) return;
+        var t = times(); if (!t.length) return;
+        var i = gateIndex(); if (i < 0) return;
+        var now = 0;
+        try { now = player.getCurrentTime(); } catch(e){ return; }
+        if (now >= t[i] - 0.25) { try { player.pauseVideo(); player.seekTo(t[i], true); } catch(e){} nudge(i); }
+      }
+    }
+  });
+}
+function loadApi(){
+  if (apiTried) return;
+  apiTried = true;
+  var s = document.createElement("script");
+  s.src = "https://www.youtube.com/iframe_api";
+  s.onerror = function(){ apiOK = false; paintPlayer(); };
+  document.head.appendChild(s);
+  setTimeout(function(){ if (!window.YT || !window.YT.Player) { apiOK = false; watchLine(); } }, 6000);
+}
+window.onYouTubeIframeAPIReady = function(){
+  if (cfg.y[current]) { try { makePlayer(cfg.y[current]); } catch(e){ apiOK = false; paintPlayer(); } }
+};
+
+function paintPlayer(){
+  var host = document.getElementById("player");
+  var id = cfg.y[current] || "";
+  if (poller) { clearInterval(poller); poller = null; }
+  player = null;
+  host.innerHTML = "";
+  if (!id) {
+    var d = document.createElement("div");
+    d.className = "ph";
+    d.textContent = "This one has no video yet. Pick another case above.";
+    host.appendChild(d);
+    watchLine();
+    return;
+  }
+  if (window.YT && window.YT.Player) {
+    try { makePlayer(id); watchLine(); return; } catch(e){ apiOK = false; }
+  }
+  var f = document.createElement("iframe");
+  f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) + "?playsinline=1&rel=0&modestbranding=1";
+  f.allow = "accelerometer; encrypted-media; picture-in-picture; fullscreen";
+  f.setAttribute("allowfullscreen","");
+  host.appendChild(f);
+  watchLine();
+  loadApi();
+}
+
+function countDone(slug){
+  var c = caseOf(slug), n = 0;
+  c.pauses.forEach(function(p){
+    var a = ans[slug][p.id];
+    if (a.own.trim().length >= 10 && a.clarity) n++;
+  });
+  return n;
+}
+
+function paintChips(){
+  var host = document.getElementById("cases");
+  host.innerHTML = "";
+  CASES.forEach(function(c){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = c.short;
+    var t = document.createElement("span");
+    t.className = "tick";
+    t.textContent = countDone(c.slug) + "/" + c.pauses.length;
+    b.appendChild(t);
+    b.className = c.slug === current ? "on" : (cfg.y[c.slug] ? "" : "none");
+    b.addEventListener("click", function(){ switchTo(c.slug); });
+    host.appendChild(b);
+  });
+}
+
+function refresh(){
+  var c = caseOf(current);
+  c.pauses.forEach(function(p, i){
+    var a = ans[current][p.id], e = el[p.id];
+    if (!e) return;
+    var prev = i === 0 ? true : ans[current][c.pauses[i-1].id].own.trim().length >= 10;
+    var ready = a.own.trim().length >= 10;
+    e.section.className = prev ? "" : "locked";
+    e.q.style.display = prev ? "" : "none";
+    e.ownWrap.style.display = prev ? "" : "none";
+    e.waiting.style.display = prev ? "none" : "";
+    e.check.style.display = (prev && ready) ? "" : "none";
+    e.clear.className = a.clarity === "clear" ? "on" : "";
+    e.conf.className = a.clarity === "confusing" ? "on" : "";
+    e.snagWrap.className = a.clarity === "confusing" ? "snag open" : "snag";
+  });
+  var any = c.pauses.some(function(p){ return ans[current][p.id].own.trim().length >= 10; });
+  document.getElementById("send").className = any ? "send" : "send off";
+  paintChips();
+}
+
+function build(){
+  var c = caseOf(current);
+  document.getElementById("title").textContent = c.title;
+  document.getElementById("kicker").textContent = "Gumption · " + c.n;
+  var host = document.getElementById("pauses");
+  host.innerHTML = "";
+  el = {};
+
+  c.pauses.forEach(function(p, i){
+    var sec = document.createElement("section");
+    var tag = document.createElement("div");
+    tag.className = "mono";
+    tag.textContent = "Pause " + (i+1) + " · " + p.name;
+    sec.appendChild(tag);
+
+    var waiting = document.createElement("p");
+    waiting.className = "hint";
+    waiting.style.marginTop = "10px";
+    waiting.textContent = "Opens once you have answered pause " + i + ".";
+    sec.appendChild(waiting);
+
+    var q = document.createElement("div");
+    q.className = "q";
+    q.textContent = p.q;
+    sec.appendChild(q);
+
+    var ownWrap = document.createElement("div");
+    var lab = document.createElement("label");
+    lab.textContent = "Your answer. Not a good answer, your real one.";
+    ownWrap.appendChild(lab);
+    var own = document.createElement("textarea");
+    own.placeholder = "Type what actually went through your head.";
+    ownWrap.appendChild(own);
+    sec.appendChild(ownWrap);
+
+    var check = document.createElement("div");
+    check.style.display = "none";
+    var cl = document.createElement("label");
+    cl.textContent = "Did the question make sense to you?";
+    check.appendChild(cl);
+    var chips = document.createElement("div");
+    chips.className = "chips";
+    var bc = document.createElement("button"); bc.type = "button"; bc.textContent = "Made sense";
+    var bf = document.createElement("button"); bf.type = "button"; bf.textContent = "Confusing";
+    chips.appendChild(bc); chips.appendChild(bf);
+    check.appendChild(chips);
+
+    var snagWrap = document.createElement("div");
+    snagWrap.className = "snag";
+    var sl = document.createElement("label");
+    sl.textContent = "What was confusing about it?";
+    snagWrap.appendChild(sl);
+    var snag = document.createElement("textarea");
+    snag.className = "one";
+    snag.placeholder = "Which bit lost you, or what you thought it was asking.";
+    snagWrap.appendChild(snag);
+    check.appendChild(snagWrap);
+    sec.appendChild(check);
+    host.appendChild(sec);
+
+    el[p.id] = { section:sec, q:q, ownWrap:ownWrap, waiting:waiting, check:check,
+                 clear:bc, conf:bf, snagWrap:snagWrap, snag:snag, own:own };
+
+    var slug = current, pid = p.id;
+    own.addEventListener("input", function(){ ans[slug][pid].own = own.value; refresh(); saveLocal(); if (slug === current) watchLine(); });
+    snag.addEventListener("input", function(){ ans[slug][pid].snag = snag.value; saveLocal(); });
+    bc.addEventListener("click", function(){
+      var a = ans[slug][pid];
+      a.clarity = a.clarity === "clear" ? "" : "clear";
+      if (a.clarity === "clear") { a.snag = ""; snag.value = ""; }
+      refresh(); saveLocal();
+    });
+    bf.addEventListener("click", function(){
+      var a = ans[slug][pid];
+      a.clarity = a.clarity === "confusing" ? "" : "confusing";
+      refresh(); saveLocal();
+    });
+  });
+}
+
+function paint(){
+  var c = caseOf(current);
+  c.pauses.forEach(function(p){
+    var a = ans[current][p.id], e = el[p.id];
+    if (!e) return;
+    if (e.own.value !== a.own) e.own.value = a.own;
+    if (e.snag.value !== a.snag) e.snag.value = a.snag;
+  });
+  paintPlayer();
+  refresh();
+}
+
+function switchTo(slug){
+  if (slug === current) return;
+  current = slug;
+  build(); paint();
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
+
+function message(){
+  var c = caseOf(current);
+  var out = ["Gumption — " + c.title, ""];
+  c.pauses.forEach(function(p, i){
+    var a = ans[current][p.id];
+    if (!a.own.trim()) return;
+    out.push("Pause " + (i+1) + ": " + p.name);
+    out.push("Q: " + p.q);
+    out.push("Me: " + a.own.trim());
+    if (a.clarity === "confusing") out.push("The question was confusing" + (a.snag.trim() ? ": " + a.snag.trim() : ""));
+    else if (a.clarity === "clear") out.push("The question made sense");
+    out.push("");
+  });
+  out.push("Sent from the answer page.");
+  return out.join("\n");
+}
+
+document.getElementById("send").addEventListener("click", function(){
+  var txt = encodeURIComponent(message());
+  var num = (cfg.wa || "").replace(/[^0-9]/g, "");
+  window.open(num ? ("https://wa.me/" + num + "?text=" + txt) : ("https://wa.me/?text=" + txt), "_blank");
+});
+document.getElementById("copy").addEventListener("click", function(){
+  var t = message();
+  var done = function(){ document.getElementById("saved").textContent = "Copied. Paste it to Dad."; };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, done);
+  else {
+    var ta = document.createElement("textarea");
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch(e){}
+    document.body.removeChild(ta); done();
+  }
+});
+
+function setupSaved(msg){
+  var n = document.getElementById("setupstate");
+  if (!n) return;
+  var filled = 0;
+  CASES.forEach(function(c){ if (cfg.y[c.slug]) filled++; });
+  n.textContent = msg || ("Saved · " + filled + " of " + CASES.length + " videos in · " + (cfg.wa ? "number in" : "no number yet"));
+}
+
+function buildSetup(){
+  var host = document.getElementById("vidfields");
+  CASES.forEach(function(c){
+    var l = document.createElement("label");
+    l.textContent = c.title;
+    var inp = document.createElement("input");
+    inp.type = "text";
+    inp.placeholder = "https://youtu.be/...";
+    inp.value = cfg.y[c.slug] ? "https://youtu.be/" + cfg.y[c.slug] : "";
+    inp.addEventListener("input", function(){
+      var id = ytId(inp.value);
+      if (id) cfg.y[c.slug] = id; else delete cfg.y[c.slug];
+      saveLocal(); setupSaved();
+      if (c.slug === current) paintPlayer();
+      paintChips();
+    });
+    var tl = document.createElement("label");
+    tl.textContent = "Pause times, " + c.pauses.length + " of them";
+    var ti = document.createElement("input");
+    ti.type = "text";
+    ti.placeholder = c.pauses.map(function(){ return "0:00"; }).join(", ");
+    ti.value = (cfg.t[c.slug] || []).map(fmt).join(", ");
+    ti.addEventListener("input", function(){
+      var t = parseTimes(ti.value);
+      if (t.length) cfg.t[c.slug] = t; else delete cfg.t[c.slug];
+      saveLocal(); setupSaved();
+      if (c.slug === current) watchLine();
+    });
+    host.appendChild(l); host.appendChild(inp);
+    host.appendChild(tl); host.appendChild(ti);
+  });
+  var wa = document.getElementById("wa");
+  wa.value = cfg.wa || "";
+  wa.addEventListener("input", function(){ cfg.wa = wa.value.replace(/[^0-9]/g,""); saveLocal(); setupSaved(); });
+  document.getElementById("savebtn").addEventListener("click", function(){
+    saveLocal();
+    setupSaved("Saved at " + new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
+  });
+
+  document.getElementById("mklink").addEventListener("click", function(){
+    var url = shareLink();
+    var out = document.getElementById("linkout");
+    out.style.display = "block";
+    out.textContent = url;
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url);
+    setupSaved("Link copied. Send Pichi the whole thing.");
+  });
+  document.getElementById("walink").addEventListener("click", function(){
+    var txt = encodeURIComponent("Here is the Gumption page. Open it in Safari, watch the case and answer there.\n\n" + shareLink());
+    window.open("https://wa.me/?text=" + txt, "_blank");
+  });
+}
+
+loadHash();
+loadLocal();
+build();
+buildSetup();
+setupSaved();
+paint();
+var first = null;
+CASES.forEach(function(c){ if (!first && cfg.y[c.slug]) first = c.slug; });
+if (first && first !== current) switchTo(first);
+</script>
+</body>
+</html>
