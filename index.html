@@ -126,7 +126,7 @@ var el = {};
 
 CASES.forEach(function(c){
   ans[c.slug] = {};
-  c.pauses.forEach(function(p){ ans[c.slug][p.id] = { own:"", clarity:"", snag:"", reached:false, submitted:false, at:"" }; });
+  c.pauses.forEach(function(p){ ans[c.slug][p.id] = { own:"", clarity:"", snag:"", reached:false, submitted:false, at:"", synced:false }; });
 });
 
 function caseOf(slug){
@@ -175,6 +175,7 @@ function loadLocal(){
         ans[c.slug][p.id].reached = r.reached === true;
         ans[c.slug][p.id].submitted = r.submitted === true;
         ans[c.slug][p.id].at = typeof r.at === "string" ? r.at : "";
+        ans[c.slug][p.id].synced = r.synced === true;
       });
     });
   } catch(e){}
@@ -227,6 +228,59 @@ function gateIndex(){
   }
   return -1;
 }
+var ENDPOINT = "https://script.google.com/macros/s/AKfycbwPsxNfhsi0nc2gpon_hOrpnATMHKU0aRj_JVjYvejIMYtdWpYKQmAGKBT1Tfxw4JqRhA/exec";
+var sending = {};
+
+function payloadFor(slug, pid){
+  var c = caseOf(slug), a = ans[slug][pid], idx = 0, pz = null;
+  c.pauses.forEach(function(p, i){ if (p.id === pid) { pz = p; idx = i; } });
+  if (!pz) return null;
+  return {
+    id: slug + "/" + pid,
+    caseTitle: c.title,
+    pause: "Pause " + (idx+1) + " · " + pz.name,
+    question: pz.q,
+    answer: a.own,
+    clarity: a.clarity === "confusing" ? "confusing" : (a.clarity === "clear" ? "made sense" : ""),
+    snag: a.snag,
+    at: a.at
+  };
+}
+
+function sendOne(slug, pid){
+  var key = slug + "/" + pid;
+  if (sending[key] || !ENDPOINT) return;
+  var a = ans[slug][pid];
+  if (!a.submitted || a.synced) return;
+  var body = JSON.stringify(payloadFor(slug, pid));
+  if (!body) return;
+  sending[key] = true;
+  var ok = function(){
+    sending[key] = false;
+    a.synced = true;
+    saveLocal();
+    if (slug === current) refresh();
+  };
+  var fail = function(){ sending[key] = false; };
+  try {
+    fetch(ENDPOINT, { method:"POST", body: body })
+      .then(function(r){ return r.text(); })
+      .then(ok)
+      .catch(function(){
+        fetch(ENDPOINT, { method:"POST", mode:"no-cors", body: body }).then(ok).catch(fail);
+      });
+  } catch(e){ fail(); }
+}
+
+function flush(){
+  CASES.forEach(function(c){
+    c.pauses.forEach(function(p){
+      var a = ans[c.slug][p.id];
+      if (a.submitted && !a.synced) sendOne(c.slug, p.id);
+    });
+  });
+}
+
 var ccTries = 0;
 function killCaptions(){
   if (!player) return;
@@ -407,7 +461,7 @@ function refresh(){
 
     e.submit.style.display = done ? "none" : "";
     e.submit.className = (ready && a.clarity) ? "send" : "send off";
-    e.note.textContent = done ? ("Submitted " + a.at + " · locked") : "";
+    e.note.textContent = done ? ("Submitted " + a.at + " · locked" + (a.synced ? " · saved" : " · will save when you have signal")) : "";
   });
   paintChips();
 }
@@ -514,9 +568,11 @@ function build(){
       if (a.own.trim().length < 10 || !a.clarity) return;
       a.submitted = true;
       a.at = new Date().toLocaleString();
+      a.synced = false;
       saveLocal();
       refresh();
       watchLine();
+      sendOne(slug, pid);
     });
   });
 }
@@ -599,6 +655,9 @@ build();
 buildSetup();
 setupSaved();
 paint();
+flush();
+window.addEventListener("online", flush);
+setInterval(flush, 30000);
 var first = null;
 CASES.forEach(function(c){ if (!first && cfg.y[c.slug]) first = c.slug; });
 if (first && first !== current) switchTo(first);
