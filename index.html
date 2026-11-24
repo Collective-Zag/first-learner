@@ -643,6 +643,10 @@ function switchTo(slug){
 }
 
 loadHash();
+if ((location.hash || "").indexOf("reset") > -1) {
+  try { localStorage.removeItem("gumption-phone"); } catch(e){}
+  location.replace(location.pathname);
+}
 loadLocal();
 build();
 paint();
