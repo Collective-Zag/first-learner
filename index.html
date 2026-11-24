@@ -35,6 +35,9 @@
   .chips { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
   .chips button { background:transparent; color:var(--fg); border:1px solid var(--line); border-radius:999px; padding:12px 20px; font:inherit; font-size:15px; min-height:46px; cursor:pointer; opacity:.7; }
   .chips button.on { opacity:1; background:var(--fg); color:var(--bg); border-color:var(--fg); }
+  textarea.sealed, input.sealed { opacity:.75; border-style:dashed; }
+  .chips button.locked { pointer-events:none; opacity:.5; }
+  .chips button.on.locked { opacity:.85; }
   .snag { display:none; } .snag.open { display:block; }
   .send { display:block; width:100%; text-align:center; text-decoration:none; background:var(--fg); color:var(--bg); border:0; border-radius:10px; padding:17px; font:inherit; font-size:17px; font-weight:500; margin-top:26px; cursor:pointer; }
   .send.off { opacity:.3; pointer-events:none; }
@@ -49,7 +52,7 @@
 <main>
   <div class="mono" id="kicker">Gumption</div>
   <h1 id="title">The Prosperous Voyage</h1>
-  <p class="lead">Watch it the way anyone would. When a pause screen comes up and asks you something, it stops and asks you something. Type your answer here before you start it again. Each question only appears when the video gets to it, so you never read one early. Your first reaction is the whole point.</p>
+  <p class="lead">Watch it the way anyone would. When a pause screen comes up and asks you something, it stops and asks you something. Type your answer here and submit it before you start it again. Once you submit, that answer is locked and the video carries on. Each question only appears when the video gets to it, so you never read one early. Your first reaction is the whole point.</p>
 
   <div class="cases" id="cases"></div>
   <div class="player" id="player"></div>
@@ -57,9 +60,7 @@
 
   <div id="pauses"></div>
 
-  <button class="send off" id="send">Send my answers to Papa</button>
-  <button class="ghost" id="copy">Copy them instead</button>
-  <div class="saved" id="saved">Saved on this phone as you type</div>
+  <div class="saved" id="saved">Each answer is locked when you submit it. They stay on this phone.</div>
 
   <details id="setup">
     <summary>Setup, Papa only</summary>
@@ -112,7 +113,7 @@ var cfg = { wa:"", y:{
   "seinfeld":"7rKOGgs5btQ",
   "seven-minutes":"-NJWxi5pzXw"
 }, t:{
-  "zeno":[109,225,287],
+  "zeno":[109,238.5,311.5],
   "michelin-convent":[88,202,283],
   "michelin-road":[100,238,285],
   "seinfeld":[135,216,278,342],
@@ -125,7 +126,7 @@ var el = {};
 
 CASES.forEach(function(c){
   ans[c.slug] = {};
-  c.pauses.forEach(function(p){ ans[c.slug][p.id] = { own:"", clarity:"", snag:"", reached:false }; });
+  c.pauses.forEach(function(p){ ans[c.slug][p.id] = { own:"", clarity:"", snag:"", reached:false, submitted:false, at:"" }; });
 });
 
 function caseOf(slug){
@@ -172,6 +173,8 @@ function loadLocal(){
         ans[c.slug][p.id].clarity = typeof r.clarity === "string" ? r.clarity : "";
         ans[c.slug][p.id].snag = typeof r.snag === "string" ? r.snag : "";
         ans[c.slug][p.id].reached = r.reached === true;
+        ans[c.slug][p.id].submitted = r.submitted === true;
+        ans[c.slug][p.id].at = typeof r.at === "string" ? r.at : "";
       });
     });
   } catch(e){}
@@ -220,7 +223,7 @@ function cardStarts(){ return cfg.t[current] || []; }
 function gateIndex(){
   var c = caseOf(current), t = times();
   for (var i=0; i<t.length && i<c.pauses.length; i++) {
-    if (ans[current][c.pauses[i].id].own.trim().length < 10) return i;
+    if (!ans[current][c.pauses[i].id].submitted) return i;
   }
   return -1;
 }
@@ -350,8 +353,7 @@ function paintPlayer(){
 function countDone(slug){
   var c = caseOf(slug), n = 0;
   c.pauses.forEach(function(p){
-    var a = ans[slug][p.id];
-    if (a.own.trim().length >= 10 && a.clarity) n++;
+    if (ans[slug][p.id].submitted) n++;
   });
   return n;
 }
@@ -378,25 +380,35 @@ function refresh(){
   c.pauses.forEach(function(p, i){
     var a = ans[current][p.id], e = el[p.id];
     if (!e) return;
-    var prev = i === 0 ? true : ans[current][c.pauses[i-1].id].own.trim().length >= 10;
+    var prev = i === 0 ? true : ans[current][c.pauses[i-1].id].submitted === true;
     var ready = a.own.trim().length >= 10;
     var open = prev && a.reached === true;
+    var done = a.submitted === true;
+
     e.tag.textContent = open ? ("Pause " + (i+1) + " · " + p.name) : ("Pause " + (i+1));
     e.section.className = open ? "" : "locked";
     e.q.style.display = open ? "" : "none";
     e.ownWrap.style.display = open ? "" : "none";
     e.waiting.style.display = open ? "none" : "";
     e.waiting.textContent = !prev
-      ? ("Answer pause " + i + " first.")
+      ? ("Submit pause " + i + " first.")
       : "Opens when the video gets here.";
     e.reveal.style.display = (!open && prev && apiDown) ? "" : "none";
+
     e.check.style.display = (open && ready) ? "" : "none";
-    e.clear.className = a.clarity === "clear" ? "on" : "";
-    e.conf.className = a.clarity === "confusing" ? "on" : "";
+    e.clear.className = (a.clarity === "clear" ? "on" : "") + (done ? " locked" : "");
+    e.conf.className = (a.clarity === "confusing" ? "on" : "") + (done ? " locked" : "");
     e.snagWrap.className = a.clarity === "confusing" ? "snag open" : "snag";
+
+    e.own.readOnly = done;
+    e.snag.readOnly = done;
+    e.own.className = done ? "sealed" : "";
+    e.snag.className = done ? "one sealed" : "one";
+
+    e.submit.style.display = done ? "none" : "";
+    e.submit.className = (ready && a.clarity) ? "send" : "send off";
+    e.note.textContent = done ? ("Submitted " + a.at + " · locked") : "";
   });
-  var any = c.pauses.some(function(p){ return ans[current][p.id].own.trim().length >= 10; });
-  document.getElementById("send").className = any ? "send" : "send off";
   paintChips();
 }
 
@@ -468,22 +480,43 @@ function build(){
     host.appendChild(sec);
 
     el[p.id] = { section:sec, tag:tag, q:q, ownWrap:ownWrap, waiting:waiting, reveal:reveal,
-                 check:check, clear:bc, conf:bf, snagWrap:snagWrap, snag:snag, own:own };
+                 check:check, clear:bc, conf:bf, snagWrap:snagWrap, snag:snag, own:own,
+                 submit:submit, note:note };
     reveal.addEventListener("click", function(){ markReached(i); });
 
     var slug = current, pid = p.id;
-    own.addEventListener("input", function(){ ans[slug][pid].own = own.value; refresh(); saveLocal(); if (slug === current) watchLine(); });
-    snag.addEventListener("input", function(){ ans[slug][pid].snag = snag.value; saveLocal(); });
+    own.addEventListener("input", function(){
+      var a = ans[slug][pid];
+      if (a.submitted) { own.value = a.own; return; }
+      a.own = own.value; refresh(); saveLocal(); if (slug === current) watchLine();
+    });
+    snag.addEventListener("input", function(){
+      var a = ans[slug][pid];
+      if (a.submitted) { snag.value = a.snag; return; }
+      a.snag = snag.value; refresh(); saveLocal();
+    });
     bc.addEventListener("click", function(){
       var a = ans[slug][pid];
+      if (a.submitted) return;
       a.clarity = a.clarity === "clear" ? "" : "clear";
       if (a.clarity === "clear") { a.snag = ""; snag.value = ""; }
       refresh(); saveLocal();
     });
     bf.addEventListener("click", function(){
       var a = ans[slug][pid];
+      if (a.submitted) return;
       a.clarity = a.clarity === "confusing" ? "" : "confusing";
       refresh(); saveLocal();
+    });
+    submit.addEventListener("click", function(){
+      var a = ans[slug][pid];
+      if (a.submitted) return;
+      if (a.own.trim().length < 10 || !a.clarity) return;
+      a.submitted = true;
+      a.at = new Date().toLocaleString();
+      saveLocal();
+      refresh();
+      watchLine();
     });
   });
 }
@@ -505,48 +538,6 @@ function switchTo(slug){
   current = slug;
   build(); paint();
   window.scrollTo({ top:0, behavior:"smooth" });
-}
-
-function message(){
-  var c = caseOf(current);
-  var out = ["Gumption — " + c.title, ""];
-  c.pauses.forEach(function(p, i){
-    var a = ans[current][p.id];
-    if (!a.own.trim()) return;
-    out.push("Pause " + (i+1) + ": " + p.name);
-    out.push("Q: " + p.q);
-    out.push("Me: " + a.own.trim());
-    if (a.clarity === "confusing") out.push("The question was confusing" + (a.snag.trim() ? ": " + a.snag.trim() : ""));
-    else if (a.clarity === "clear") out.push("The question made sense");
-    out.push("");
-  });
-  out.push("Sent from the answer page.");
-  return out.join("\n");
-}
-
-document.getElementById("send").addEventListener("click", function(){
-  var txt = encodeURIComponent(message());
-  var num = (cfg.wa || "").replace(/[^0-9]/g, "");
-  window.open(num ? ("https://wa.me/" + num + "?text=" + txt) : ("https://wa.me/?text=" + txt), "_blank");
-});
-document.getElementById("copy").addEventListener("click", function(){
-  var t = message();
-  var done = function(){ document.getElementById("saved").textContent = "Copied. Paste it to Papa."; };
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, done);
-  else {
-    var ta = document.createElement("textarea");
-    ta.value = t; document.body.appendChild(ta); ta.select();
-    try { document.execCommand("copy"); } catch(e){}
-    document.body.removeChild(ta); done();
-  }
-});
-
-function setupSaved(msg){
-  var n = document.getElementById("setupstate");
-  if (!n) return;
-  var filled = 0;
-  CASES.forEach(function(c){ if (cfg.y[c.slug]) filled++; });
-  n.textContent = msg || ("Saved · " + filled + " of " + CASES.length + " videos in · " + (cfg.wa ? "number in" : "no number yet"));
 }
 
 function buildSetup(){
