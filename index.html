@@ -224,6 +224,14 @@ function gateIndex(){
   }
   return -1;
 }
+var ccTries = 0;
+function killCaptions(){
+  if (!player) return;
+  try { player.unloadModule("captions"); } catch(e){}
+  try { player.unloadModule("cc"); } catch(e){}
+  try { player.setOption("captions", "track", {}); } catch(e){}
+  try { player.setOption("cc", "track", {}); } catch(e){}
+}
 function markReached(i){
   var c = caseOf(current);
   if (!c.pauses[i]) return;
@@ -254,6 +262,7 @@ function startPoll(){
   if (poller) clearInterval(poller);
   poller = setInterval(function(){
     if (!player || !apiOK || !player.getCurrentTime) return;
+    if (ccTries < 40) { ccTries++; killCaptions(); }
     var t = times(); if (!t.length) return;
     var i = gateIndex(); if (i < 0) return;
     var now = 0;
@@ -279,14 +288,16 @@ function makePlayer(id){
   player = new YT.Player("ytmount", {
     videoId: id,
     host: "https://www.youtube-nocookie.com",
-    playerVars: { playsinline:1, rel:0, modestbranding:1, cc_load_policy:0, cc_lang_pref:"none", iv_load_policy:3 },
+    playerVars: { playsinline:1, rel:0, modestbranding:1, cc_load_policy:0, iv_load_policy:3 },
     events: {
       onReady: function(){
         apiOK = true; apiDown = false;
-        try { player.unloadModule("captions"); player.unloadModule("cc"); } catch(e){}
+        ccTries = 0; killCaptions();
         watchLine(); startPoll(); refresh();
       },
       onStateChange: function(ev){
+        ccTries = 0;
+        killCaptions();
         if (ev.data !== 1) return;
         var t = times(); if (!t.length) return;
         var i = gateIndex(); if (i < 0) return;
@@ -328,7 +339,7 @@ function paintPlayer(){
     try { makePlayer(id); watchLine(); return; } catch(e){ apiOK = false; apiDown = true; }
   }
   var f = document.createElement("iframe");
-  f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) + "?playsinline=1&rel=0&modestbranding=1&cc_load_policy=0&cc_lang_pref=none&iv_load_policy=3";
+  f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) + "?playsinline=1&rel=0&modestbranding=1&cc_load_policy=0&iv_load_policy=3";
   f.allow = "accelerometer; encrypted-media; picture-in-picture; fullscreen";
   f.setAttribute("allowfullscreen","");
   host.appendChild(f);
