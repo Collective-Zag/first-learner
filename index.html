@@ -106,7 +106,7 @@ var cfg = { wa:"", y:{
   "seinfeld":"7rKOGgs5btQ",
   "seven-minutes":"-NJWxi5pzXw"
 }, t:{
-  "zeno":[109,244,314],
+  "zeno":[116,244,314],
   "michelin-convent":[90.5,204.5,285.5],
   "michelin-road":[102.5,240.5,287.5],
   "seinfeld":[137.5,218.5,280.5,344.5],
@@ -432,7 +432,7 @@ function refresh(){
     if (!e) return;
     var prev = i === 0 ? true : ans[current][c.pauses[i-1].id].submitted === true;
     var open = prev && a.reached === true;
-    var ready = a.own.trim().length >= 10;
+    var ready = a.own.trim().length > 0;
 
     e.tag.textContent = open ? ("Pause " + (i+1) + " \u00b7 " + p.name) : ("Pause " + (i+1));
     e.section.className = open ? "" : "locked";
@@ -452,7 +452,7 @@ function refresh(){
     var can = ready && a.clarity;
     e.submit.className = can ? "send" : "send off";
     e.note.textContent = can ? ""
-      : (!ready ? "Write a little more, then you can submit."
+      : (!ready ? "Type your answer first."
                 : "Say whether the question made sense.");
   });
   paintChips();
@@ -583,7 +583,7 @@ function build(){
       a.own = own.value; refresh(); saveLocal();
     });
     snag.addEventListener("input", function(){
-      ans[slug][pid].snag = snag.value; saveLocal();
+      ans[slug][pid].snag = snag.value; saveLocal(); refresh();
     });
     bc.addEventListener("click", function(){
       var a = ans[slug][pid];
@@ -599,7 +599,7 @@ function build(){
     submit.addEventListener("click", function(){
       var a = ans[slug][pid];
       if (a.submitted) return;
-      if (a.own.trim().length < 10 || !a.clarity) return;
+      if (!a.own.trim() || !a.clarity) return;
       a.submitted = true;
       a.at = new Date().toLocaleString();
       a.synced = false;
